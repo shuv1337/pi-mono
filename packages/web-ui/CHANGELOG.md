@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- OpenAI-compatible custom provider discovery via `/v1/models`, including custom gateway flows like `proxx`
+
+### Changed
+
+- OpenAI-compatible custom providers now support model discovery, refresh, and saved discovered model catalogs in the provider dialog
+
 ## [0.60.0] - 2026-03-18
 
 ## [0.59.0] - 2026-03-17
