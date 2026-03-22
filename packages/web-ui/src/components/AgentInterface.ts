@@ -46,6 +46,19 @@ export class AgentInterface extends LitElement {
 	private _resizeObserver?: ResizeObserver;
 	private _unsubscribeSession?: () => void;
 
+	private async getCustomProvider(provider: string) {
+		const customProviders = await getAppStorage().customProviders.getAll();
+		return customProviders.find((customProvider) => customProvider.name === provider);
+	}
+
+	private async resolveApiKeyFromStorage(provider: string): Promise<string | undefined> {
+		const key = await getAppStorage().providerKeys.get(provider);
+		if (key) {
+			return key;
+		}
+		return (await this.getCustomProvider(provider))?.apiKey;
+	}
+
 	public setInput(text: string, attachments?: Attachment[]) {
 		const update = () => {
 			if (!this._messageEditor) requestAnimationFrame(update);
@@ -145,8 +158,7 @@ export class AgentInterface extends LitElement {
 		// Set default getApiKey if not already set
 		if (!this.session.getApiKey) {
 			this.session.getApiKey = async (provider: string) => {
-				const key = await getAppStorage().providerKeys.get(provider);
-				return key ?? undefined;
+				return await this.resolveApiKeyFromStorage(provider);
 			};
 		}
 
@@ -218,12 +230,14 @@ export class AgentInterface extends LitElement {
 		if (!session) throw new Error("No session set on AgentInterface");
 		if (!session.state.model) throw new Error("No model set on AgentInterface");
 
-		// Check if API key exists for the provider (only needed in direct mode)
+		// Check if API key exists for the provider.
+		// Custom providers (proxies, local servers) may not need an explicit
+		// API key — skip the gate when one is configured for this provider.
 		const provider = session.state.model.provider;
-		const apiKey = await getAppStorage().providerKeys.get(provider);
+		const apiKey = await this.resolveApiKeyFromStorage(provider);
+		const isCustomProvider = !!(await this.getCustomProvider(provider));
 
-		// If no API key, prompt for it
-		if (!apiKey) {
+		if (!apiKey && !isCustomProvider) {
 			if (!this.onApiKeyRequired) {
 				console.error("No API key configured and no onApiKeyRequired handler set");
 				return;
